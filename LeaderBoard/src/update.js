@@ -45,7 +45,7 @@ if (missing.length) {
  * We ignore any files outside the author's own member folder.
  */
 function countNewQuestions(changedFiles, username) {
-  const prefix = `member/${username}/`;
+  const prefix = `Member/${username}/`;
   const relevant = changedFiles
     .split("\n")
     .map((f) => f.trim())
