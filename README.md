@@ -37,21 +37,48 @@ View the live leaderboard at: **[Click Here!](https://am-foss-cp-tracker.vercel.
 ---
 
 ### 📌 Todays CP
-[Provide the Question here]
+Easy
+- https://leetcode.com/problems/linked-list-cycle/description/
+- https://leetcode.com/problems/happy-number/description/
+- https://leetcode.com/problems/linked-list-cycle/description/
 
+
+Medium
+- https://leetcode.com/problems/reverse-linked-list-ii/description/
+- https://leetcode.com/problems/swap-nodes-in-pairs/description/
+
+Hard
+- https://leetcode.com/problems/merge-k-sorted-lists/description/
 
 ---
 
-📚 Resources
-
+## 📚 Resources
 Topics Covered:
 
-[Provide Topics Here]
+- Floyd’s Cycle Detection
+- Fast & Slow Pointer Technique
+- Linked List Traversal
+- Reversing Linked Lists (Partial & Full)
+- Swapping Nodes in Linked List
+- Cycle Detection in Linked Lists
+  
+---
+## Link For Study Material:
 
-Link For Study Material:
+🔹 Linked List Basics
+https://www.geeksforgeeks.org/data-structures/linked-list/
 
-[Provide Links Here]
+🔹 Floyd’s Cycle Detection Algorithm
+https://www.geeksforgeeks.org/floyds-cycle-finding-algorithm/
+
+🔹 Fast & Slow Pointer Pattern
+https://leetcode.com/discuss/general-discussion/458695/different-types-of-two-pointer-technique
+
+🔹 Reverse Linked List (Concept)
+https://www.geeksforgeeks.org/reverse-a-linked-list/
+
+🔹 Happy Number Explanation (Cycle Detection)
+https://www.geeksforgeeks.org/happy-number/
 
 ---
-
 All the Best!
