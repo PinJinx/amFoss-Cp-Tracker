@@ -1,0 +1,75 @@
+# .github/workflows/update-leaderboard.yml
+#
+# Triggers when a PR targeting `main` is MERGED (not just closed).
+# Counts screenshot files added under  member/<pr-author>/
+# and calls update.js to upsert the leaderboard in Supabase.
+#
+# ── Required GitHub Secrets (Settings → Secrets → Actions) ──────────────────
+#   SUPABASE_URL   – https://xyzxyz.supabase.co
+#   SUPABASE_KEY   – your service_role key (NOT anon key)
+#
+# ── Optional secrets ─────────────────────────────────────────────────────────
+#   GITHUB_TOKEN   – auto-provided by Actions; used to raise GitHub API limit
+#                    when fetching avatars. No extra setup needed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Update Leaderboard
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main          # change to master or your default branch if needed
+
+jobs:
+  update-leaderboard:
+    # Only run when the PR was actually merged, not just closed/rejected
+    if: github.event.pull_request.merged == true
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout repo ──────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # need full history to diff files
+
+      # ── 2. Set up Node ────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # ── 3. Install Supabase client ────────────────────────────────────────
+      - name: Install dependencies
+        run: npm install @supabase/supabase-js
+
+      # ── 4. Get the list of files changed in this PR ───────────────────────
+      #   We diff the merge commit against its first parent (the base branch)
+      #   and grab only Added (A) files so we don't count deletions/renames.
+      - name: Get changed files
+        id: changed
+        run: |
+          FILES=$(git diff --name-only --diff-filter=A \
+            ${{ github.event.pull_request.base.sha }} \
+            ${{ github.event.pull_request.merge_commit_sha }})
+          echo "Changed / added files:"
+          echo "$FILES"
+          # Store as a multiline env var for the next step
+          {
+            echo "FILES<<EOF"
+            echo "$FILES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # ── 5. Run update.js ──────────────────────────────────────────────────
+      - name: Update leaderboard
+        env:
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
+          GITHUB_TOKEN:        ${{ secrets.GITHUB_TOKEN }}
+          PR_AUTHOR:           ${{ github.event.pull_request.user.login }}
+          CHANGED_FILES:       ${{ steps.changed.outputs.FILES }}
+          POINTS_PER_QUESTION: "10"       # tweak points per question here
+        run: node /LeaderBoard/src/update.js
