@@ -1,34 +1,33 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  update.js  —  Called by GitHub Actions on PR merge.
+//  update.js  —  Called by GitHub Actions on PR open / sync against a date branch.
 //
-//  What it does:
-//    1. Reads PR author + changed files from env vars set by the workflow
-//    2. Counts screenshot files inside  member/<username>/
-//    3. Fetches the user's existing row from Supabase (if any)
-//    4. Upserts:  total questions += new_count,  points += new_count * POINTS_PER_Q
-//                 avatar is refreshed from GitHub each time
+//  Folder convention:  Members/<any-name>/screenshot1.png
+//  The PR author's GitHub username is used for the leaderboard entry.
+//  The subfolder name under Members/ does NOT need to match the GitHub username.
 //
-//  Env vars required (set as GitHub Actions secrets / env):
-//    SUPABASE_URL        – e.g. https://xyzxyz.supabase.co
+//  Env vars (all injected by the workflow):
+//    SUPABASE_URL        – https://xyzxyz.supabase.co
 //    SUPABASE_KEY        – service_role key  (NOT the anon key)
 //    PR_AUTHOR           – GitHub username of the PR author
-//    CHANGED_FILES       – newline-separated list of changed files (from workflow)
-//    POINTS_PER_QUESTION – (optional) points per question, default 10
+//    CHANGED_FILES       – newline-separated list of added files
+//    DATE_BRANCH         – target branch name = YYYY-MM-DD date
+//    POINTS_PER_QUESTION – points per question file (default 10)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from "@supabase/supabase-js";
 
-// ── Config ──────────────────────────────────────────────────────────────────
+// ── Config ────────────────────────────────────────────────────────────────────
 
 const SUPABASE_URL        = process.env.SUPABASE_URL;
-const SUPABASE_KEY        = process.env.SUPABASE_KEY;          // service_role
+const SUPABASE_KEY        = process.env.SUPABASE_KEY;
 const PR_AUTHOR           = process.env.PR_AUTHOR;
 const CHANGED_FILES_RAW   = process.env.CHANGED_FILES ?? "";
+const DATE_BRANCH         = process.env.DATE_BRANCH ?? "";
 const POINTS_PER_QUESTION = parseInt(process.env.POINTS_PER_QUESTION ?? "10", 10);
 
-// ── Validate env ─────────────────────────────────────────────────────────────
+// ── Validate env ──────────────────────────────────────────────────────────────
 
-const missing = ["SUPABASE_URL", "SUPABASE_KEY", "PR_AUTHOR"].filter(
+const missing = ["SUPABASE_URL", "SUPABASE_KEY", "PR_AUTHOR", "DATE_BRANCH"].filter(
   (k) => !process.env[k]
 );
 
@@ -37,32 +36,42 @@ if (missing.length) {
   process.exit(1);
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+if (!/^\d{4}-\d{2}-\d{2}$/.test(DATE_BRANCH)) {
+  console.error(`❌  DATE_BRANCH "${DATE_BRANCH}" is not a valid YYYY-MM-DD date.`);
+  process.exit(1);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Count screenshot files the PR author added inside  member/<username>/
- * A "screenshot file" is anything that is NOT a directory marker (no trailing /).
- * We ignore any files outside the author's own member folder.
+ * Count files added anywhere inside  Members/<any-subfolder>/
+ * The subfolder name doesn't have to match the GitHub username —
+ * we count ALL files added under Members/ by this PR.
+ * Skips bare directory markers (paths ending with /).
  */
-function countNewQuestions(changedFiles, username) {
-  const prefix = `Member/${username}/`;
-  const relevant = changedFiles
+function countNewQuestions(changedFiles) {
+  const files = changedFiles
     .split("\n")
     .map((f) => f.trim())
-    .filter((f) => f.startsWith(prefix) && f !== prefix);
+    .filter((f) => {
+      if (!f) return false;
+      if (f.endsWith("/")) return false;                  // directory marker
+      const parts = f.split("/");
+      return parts[0] === "Members" && parts.length >= 3; // Members/<folder>/<file>
+    });
 
-  // Exclude bare folder markers (git sometimes lists them ending with /)
-  const files = relevant.filter((f) => !f.endsWith("/"));
-
-  console.log(`📂  Files under ${prefix}:`);
-  files.forEach((f) => console.log(`     ${f}`));
+  console.log(`📂  Question files found in this PR:`);
+  if (files.length === 0) {
+    console.log("     (none under Members/)");
+  } else {
+    files.forEach((f) => console.log(`     ${f}`));
+  }
 
   return files.length;
 }
 
 /**
  * Fetch the GitHub avatar URL for a username.
- * Falls back to a blank string if the API fails.
  */
 async function fetchAvatar(username) {
   try {
@@ -83,35 +92,28 @@ async function fetchAvatar(username) {
   }
 }
 
-/**
- * Today's date as YYYY-MM-DD in UTC.
- */
-function todayUTC() {
-  return new Date().toISOString().split("T")[0];
-}
-
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
   const username     = PR_AUTHOR.toLowerCase();
-  const newQuestions = countNewQuestions(CHANGED_FILES_RAW, username);
+  const newQuestions = countNewQuestions(CHANGED_FILES_RAW);
 
   if (newQuestions === 0) {
-    console.log("ℹ️   No question files detected for this PR. Nothing to update.");
+    console.log("ℹ️   No question files detected under Members/. Nothing to update.");
     process.exit(0);
   }
 
   const newPoints = newQuestions * POINTS_PER_QUESTION;
   console.log(
-    `\n👤  User       : ${username}` +
-    `\n📝  New Qs     : ${newQuestions}` +
-    `\n⭐  New points : ${newPoints}  (${POINTS_PER_QUESTION} pts each)\n`
+    `\n👤  User        : ${username}` +
+    `\n📅  Date branch : ${DATE_BRANCH}` +
+    `\n📝  New Qs      : ${newQuestions}` +
+    `\n⭐  New points  : +${newPoints}  (${POINTS_PER_QUESTION} pts each)\n`
   );
 
-  // ── Supabase client ────────────────────────────────────────────────────────
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ── Fetch existing row ─────────────────────────────────────────────────────
+  // Fetch existing totals
   const { data: existing, error: fetchError } = await supabase
     .from("leaderboard")
     .select("questions, points")
@@ -126,18 +128,14 @@ async function main() {
   const totalQuestions = (existing?.questions ?? 0) + newQuestions;
   const totalPoints    = (existing?.points    ?? 0) + newPoints;
   const avatar         = await fetchAvatar(username);
-  const today          = todayUTC();
 
   console.log(
     `📊  Running totals:` +
     `\n    questions : ${existing?.questions ?? 0} + ${newQuestions} = ${totalQuestions}` +
-    `\n    points    : ${existing?.points    ?? 0} + ${newPoints} = ${totalPoints}`
+    `\n    points    : ${existing?.points    ?? 0} + ${newPoints}    = ${totalPoints}`
   );
 
-  // ── Upsert into Supabase ───────────────────────────────────────────────────
-  //  We keep one row per user (overall stats).
-  //  The `date` column is updated to today so the leaderboard daily filter works:
-  //  it reflects the last day they submitted questions.
+  // Upsert — one row per user, date = the branch name
   const { error: upsertError } = await supabase
     .from("leaderboard")
     .upsert(
@@ -146,11 +144,11 @@ async function main() {
         avatar,
         questions : totalQuestions,
         points    : totalPoints,
-        date      : today,
+        date      : DATE_BRANCH,
       },
       {
-        onConflict         : "username",   // unique constraint on username column
-        ignoreDuplicates   : false,        // always update
+        onConflict       : "username",
+        ignoreDuplicates : false,
       }
     );
 
@@ -159,7 +157,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`\n✅  Leaderboard updated for ${username}!`);
+  console.log(`\n✅  Leaderboard updated successfully for ${username}!`);
 }
 
 main().catch((err) => {
