@@ -1,4 +1,4 @@
-amFoss CP Tracker
+## amFoss CP Tracker
 
 A repository to track and manage daily Competitive Programming progress of amFOSS members.
 
