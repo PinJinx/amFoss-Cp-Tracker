@@ -11,7 +11,7 @@ The goal is simple: solve daily questions, stay consistent. The leaderboard (wip
 
 ## 📊 Leaderboard
 
-View the live leaderboard at: **[your-leaderboard-url]**
+View the live leaderboard at: **[Click Here!](https://am-foss-cp-tracker.vercel.app/)**
 
 - **Overall** tab shows all-time totals
 - **Daily** tab lets you filter by a specific date to see who submitted that day
