@@ -26,6 +26,7 @@ on:
 jobs:
   update-leaderboard:
     runs-on: ubuntu-latest
+    environment: Leaderboard
 
     permissions:
       pull-requests: write   # to post comments on the PR
