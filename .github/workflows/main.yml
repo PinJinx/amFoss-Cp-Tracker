@@ -1,39 +1,61 @@
 # .github/workflows/update-leaderboard.yml
 #
-# Triggers when a PR targeting `main` is MERGED (not just closed).
-# Counts screenshot files added under  member/<pr-author>/
-# and calls update.js to upsert the leaderboard in Supabase.
+# Triggers on PRs opened/updated against a date-named branch (YYYY-MM-DD).
+# Flow:
+#   1. Reject immediately if PR targets `main`
+#   2. Count added screenshot files under  member/<pr-author>/
+#   3. Update Supabase leaderboard via update.js
+#   4. Auto-merge the PR into the date branch
 #
 # ── Required GitHub Secrets (Settings → Secrets → Actions) ──────────────────
 #   SUPABASE_URL   – https://xyzxyz.supabase.co
-#   SUPABASE_KEY   – your service_role key (NOT anon key)
-#
-# ── Optional secrets ─────────────────────────────────────────────────────────
-#   GITHUB_TOKEN   – auto-provided by Actions; used to raise GitHub API limit
-#                    when fetching avatars. No extra setup needed.
+#   SUPABASE_KEY   – service_role key (NOT anon key)
+#   PAT_TOKEN      – Personal Access Token with `repo` scope
+#                    (needed to merge PRs via API — GITHUB_TOKEN can't self-merge)
+#                    Create at: github.com/settings/tokens → classic → repo scope
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: Update Leaderboard
 
 on:
   pull_request:
-    types: [closed]
-    branches:
-      - main          # change to master or your default branch if needed
+    types: [opened, synchronize, reopened]
+    # No branch filter here — we handle the logic in the job below
+    # so we can give a clear failure message for main-targeted PRs
 
 jobs:
   update-leaderboard:
-    # Only run when the PR was actually merged, not just closed/rejected
-    if: github.event.pull_request.merged == true
-
     runs-on: ubuntu-latest
 
+    permissions:
+      pull-requests: write   # to post comments on the PR
+      contents: write        # to merge the PR
+
     steps:
+      # ── 0. Block PRs targeting main ───────────────────────────────────────
+      - name: Block PRs targeting main
+        if: github.event.pull_request.base.ref == 'main'
+        run: |
+          echo "❌  This PR targets 'main'. Leaderboard submissions must target a date branch (YYYY-MM-DD)."
+          exit 1
+
+      # ── 0b. Validate the target branch looks like a date (YYYY-MM-DD) ─────
+      - name: Validate date branch format
+        id: validate
+        run: |
+          BRANCH="${{ github.event.pull_request.base.ref }}"
+          if [[ ! "$BRANCH" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+            echo "❌  Target branch '$BRANCH' is not a date branch (expected YYYY-MM-DD format)."
+            exit 1
+          fi
+          echo "✅  Target branch: $BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
       # ── 1. Checkout repo ──────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0        # need full history to diff files
+          fetch-depth: 0
 
       # ── 2. Set up Node ────────────────────────────────────────────────────
       - name: Setup Node.js
@@ -45,18 +67,22 @@ jobs:
       - name: Install dependencies
         run: npm install @supabase/supabase-js
 
-      # ── 4. Get the list of files changed in this PR ───────────────────────
-      #   We diff the merge commit against its first parent (the base branch)
-      #   and grab only Added (A) files so we don't count deletions/renames.
+      # ── 4. Get files added in this PR ─────────────────────────────────────
+      #   Compares PR head against the base branch to find Added files only.
       - name: Get changed files
         id: changed
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
+          # Fetch the base branch so we can diff against it
+          git fetch origin ${{ steps.validate.outputs.branch }}
+
           FILES=$(git diff --name-only --diff-filter=A \
-            ${{ github.event.pull_request.base.sha }} \
-            ${{ github.event.pull_request.merge_commit_sha }})
-          echo "Changed / added files:"
+            origin/${{ steps.validate.outputs.branch }}...HEAD)
+
+          echo "Added files in this PR:"
           echo "$FILES"
-          # Store as a multiline env var for the next step
+
           {
             echo "FILES<<EOF"
             echo "$FILES"
@@ -64,12 +90,73 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # ── 5. Run update.js ──────────────────────────────────────────────────
-      - name: Update leaderboard
+      - name: Update Supabase leaderboard
+        id: update
         env:
           SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
-          GITHUB_TOKEN:        ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN:        ${{ secrets.PAT_TOKEN }}
           PR_AUTHOR:           ${{ github.event.pull_request.user.login }}
           CHANGED_FILES:       ${{ steps.changed.outputs.FILES }}
-          POINTS_PER_QUESTION: "10"       # tweak points per question here
-        run: node /LeaderBoard/src/update.js
+          DATE_BRANCH:         ${{ github.event.pull_request.base.ref }}
+          POINTS_PER_QUESTION: "10"
+        run: node LeaderBoard/src/update.js
+
+      # ── 6. Comment on the PR with a summary ───────────────────────────────
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PAT_TOKEN }}
+          script: |
+            const author    = context.payload.pull_request.user.login;
+            const branch    = context.payload.pull_request.base.ref;
+
+            // Parse files to count questions for the comment
+            const raw = `${{ steps.changed.outputs.FILES }}`;
+            const prefix = `member/${author.toLowerCase()}/`;
+            const files = raw.split('\n')
+              .map(f => f.trim())
+              .filter(f => f.startsWith(prefix) && !f.endsWith('/') && f !== prefix);
+            const count = files.length;
+            const pts   = count * 10;
+
+            const body = [
+              `## ✅ Leaderboard Updated!`,
+              ``,
+              `| | |`,
+              `|---|---|`,
+              `| 👤 **User** | \`${author}\` |`,
+              `| 📝 **Questions submitted** | ${count} |`,
+              `| ⭐ **Points earned** | +${pts} |`,
+              `| 📅 **Submitted to** | \`${branch}\` |`,
+              ``,
+              `_Merging this PR into \`${branch}\` now…_`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner:       context.repo.owner,
+              repo:        context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
+
+      # ── 7. Auto-merge the PR into the date branch ─────────────────────────
+      - name: Merge PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PAT_TOKEN }}
+          script: |
+            const pr     = context.payload.pull_request;
+            const author = pr.user.login;
+            const branch = pr.base.ref;
+
+            await github.rest.pulls.merge({
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
+              pull_number:  pr.number,
+              commit_title: `chore: add ${author}'s questions [${branch}]`,
+              commit_message: `Auto-merged by leaderboard workflow after updating Supabase.`,
+              merge_method: "squash",
+            });
+
+            console.log(`✅  PR #${pr.number} merged into ${branch}`);
