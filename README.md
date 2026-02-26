@@ -1,5 +1,7 @@
 ## amFoss CP Tracker
 
+''' Note: This is main branch to get today's question switch to the branch with today's date as name. '''
+
 A repository to track and manage daily Competitive Programming progress of amFOSS members.
 
 The goal is simple: solve daily questions, stay consistent. The leaderboard (wip) will rank you based on the submitted qs each day.
