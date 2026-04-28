@@ -12,7 +12,7 @@ View the live leaderboard:
 
 ## 🧩 How to Participate
 
-* Solve NeetCode problems daily (recommended: **~5 problems/day**).
+* Solve NeetCode problems daily (recommended: **~5 problems/week**).
 * Take a screenshot showing the problem status as **“Accepted”**.
 * Upload the screenshot inside your folder:
 
