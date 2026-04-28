@@ -1,28 +1,57 @@
-## amFoss CP Tracker
+## amFOSS CP Tracker (NeetCode Edition)
 
-**Note: This is main branch to get today's question switch to the branch with today's date as name.**
+**Note:** This is a **special branch dedicated to solving the NeetCode 150**.
 
-A repository to track and manage weekly Competitive Programming progress of amFOSS members.
+Explore all problems here:
+👉 https://neetcode.io/practice/practice/neetcode150
 
-View the live leaderboard at: **[Click Here!](https://am-foss-cp-tracker.vercel.app/)**
+View the live leaderboard:
+👉 **[Click Here!](https://am-foss-cp-tracker.vercel.app/)**
 
-## How to Participate
+---
 
-- Solve the assigned daily CP problems.
-- Take a screenshot showing the problem is Accepted.
-- Upload it to member folder by making a PR The detailed Instruction on how to provide is given in it.
+## 🧩 How to Participate
 
-**Rules**
+* Solve NeetCode problems daily (recommended: **~5 problems/day**).
+* Take a screenshot showing the problem status as **“Accepted”**.
+* Upload the screenshot inside your folder:
 
-- Only submit **your own** accepted solutions
-- One submission per day per person
+  ```
+  Members/<your-username>/screenshots/
+  ```
+* Raise a Pull Request to **neetcode-150**.
 
+📌 Make sure your screenshots are named like:
 
-## How to Create a contest
+```
+1.png, 2.png, 45.png ...
+```
+ * Detailed Instructions inside Member folder
 
-- Create a branch with name as the date of contest
-    ```bash
-    git checkout -b YYYY-MM-DD
-    ````
-- Edit the PROBLEMS.md file with atleast 5 questions. If possible, categorize them as easy, medium and hard and aslo provide reosurces, if any.
-- Add, commit and push your changes.
+---
+
+## 📏 Rules
+
+* Submit **only your own accepted solutions**.
+* Follow the correct file naming format (`<question-number>.png`).
+* Place files only inside your designated folder.
+* One valid submission per question (duplicates won’t count).
+* PRs must target a **date branch (not `main`)**.
+
+---
+
+## 🏆 Scoring System
+
+Points are awarded automatically based on difficulty:
+
+* 🟢 Easy → **10 points**
+* 🟡 Medium → **20 points**
+* 🔴 Hard → **30 points**
+  
+---
+
+## ⚠️ Notes
+
+* Only files inside `Members/` are considered for scoring.
+* Invalid filenames or incorrect structure may lead to rejection.
+* Leaderboard updates are automated via GitHub Actions.
