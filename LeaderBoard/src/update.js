@@ -140,14 +140,14 @@ async function main() {
     process.exit(1);
   }
 
-  const totalQuestions = (existing?.questions ?? 0) + newQuestions;
-  const totalPoints    = (existing?.points    ?? 0) + newPoints;
+  const totalQuestions = newQuestions;
+  const totalPoints    = newPoints;
   const avatar         = await fetchAvatar(username);
 
   console.log(
     `📊  Running totals:` +
-    `\n    questions : ${existing?.questions ?? 0} + ${newQuestions} = ${totalQuestions}` +
-    `\n    points    : ${existing?.points    ?? 0} + ${newPoints}    = ${totalPoints}`
+    `\n    questions : ${newQuestions} = ${totalQuestions}` +
+    `\n    points    : ${newPoints}    = ${totalPoints}`
   );
 
   // Upsert — one row per user, date = the branch name
