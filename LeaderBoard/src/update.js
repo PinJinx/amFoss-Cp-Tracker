@@ -1,18 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  update.js  —  Called by GitHub Actions on PR open / sync against a date branch.
-//
-//  Folder convention:  Members/<any-name>/screenshot1.png
-//  The PR author's GitHub username is used for the leaderboard entry.
-//  The subfolder name under Members/ does NOT need to match the GitHub username.
-//
-//  Env vars (all injected by the workflow):
-//    SUPABASE_URL        – https://xyzxyz.supabase.co
-//    SUPABASE_KEY        – service_role key  (NOT the anon key)
-//    PR_AUTHOR           – GitHub username of the PR author
-//    CHANGED_FILES       – newline-separated list of added files
-//    DATE_BRANCH         – target branch name = YYYY-MM-DD date
-//    POINTS_PER_QUESTION – points per question file (default 10)
-// ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -26,6 +11,23 @@ const DATE_BRANCH         = process.env.DATE_BRANCH ?? "";
 const POINTS_PER_QUESTION = parseInt(process.env.POINTS_PER_QUESTION ?? "10", 10);
 
 // ── Validate env ──────────────────────────────────────────────────────────────
+
+  //temp for neetcode 
+  const easy = [
+    1,2,3,10,15,21,28,35,36,41,46,47,48,49,50,64,65,71,80,81,82,85,99,100,101,102,111,122,123,139,140,144,145,146,147,148,149
+  ];
+  const hard = [
+  7,14,19,20,27,34,44,45,59,60,63,70,79,91,92,97,108,
+  117,118,119,120,121,
+  135,141,142,150
+  ];
+  const all = Array.from({ length: 150 }, (_, i) => i + 1);
+
+  const medium = all.filter(
+    n => !easy.includes(n) && !hard.includes(n)
+  );
+  // just for neet code 150
+
 
 const missing = ["SUPABASE_URL", "SUPABASE_KEY", "PR_AUTHOR", "DATE_BRANCH"].filter(
   (k) => !process.env[k]
@@ -41,35 +43,51 @@ if (!/^\d{4}-\d{2}-\d{2}$/.test(DATE_BRANCH)) {
   process.exit(1);
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
-/**
- * Count files added anywhere inside  Members/<any-subfolder>/
- * The subfolder name doesn't have to match the GitHub username —
- * we count ALL files added under Members/ by this PR.
- * Skips bare directory markers (paths ending with /).
- */
-function countNewQuestions(changedFiles) {
-  const files = changedFiles
-    .split("\n")
-    .map((f) => f.trim())
-    .filter((f) => {
-      if (!f) return false;
-      if (f.endsWith("/")) return false;                  // directory marker
-      const parts = f.split("/");
-      return parts[0] === "Members" && parts.length >= 3; // Members/<folder>/<file>
+  function calculatePoints(changedFiles) {
+    let totalPoints = 0;
+    let totalQuestions = 0;
+
+    const files = changedFiles
+      .split("\n")
+      .map(f => f.trim())
+      .filter(f => {
+        if (!f) return false;
+        if (f.endsWith("/")) return false;
+        const parts = f.split("/");
+        return parts[0] === "Members" && parts.length >= 3;
+      });
+
+    console.log(`📂 Processing files:`);
+    const seen = new Set();
+    files.forEach((file) => {
+      console.log(`   ${file}`);
+      const match = file.match(/(\d+)\.(png|jpg|jpeg)$/i);
+      if (!match) return;
+      const qno = parseInt(match[1], 10);
+      if (seen.has(qno)) return;
+      seen.add(qno); 
+      totalQuestions++;
+      if (DATE_BRANCH != "neetcode-150") {totalPoints += POINTS_PER_QUESTION;}
+      if (easy.includes(qno)) {
+        totalPoints += 10;
+        console.log(`     → Q${qno} (Easy) +10`);
+      } 
+      else if (medium.includes(qno)) {
+        totalPoints += 20;
+        console.log(`     → Q${qno} (Medium) +20`);
+      } 
+      else if (hard.includes(qno)) {
+        totalPoints += 30;
+        console.log(`     → Q${qno} (Hard) +30`);
+      } 
+      else {
+        console.log(`     ⚠️ Q${qno} not found in any difficulty`);
+      }
     });
 
-  console.log(`📂  Question files found in this PR:`);
-  if (files.length === 0) {
-    console.log("     (none under Members/)");
-  } else {
-    files.forEach((f) => console.log(`     ${f}`));
+    return { totalQuestions, totalPoints };
   }
-
-  return files.length;
-}
-
 /**
  * Fetch the GitHub avatar URL for a username.
  */
@@ -96,14 +114,11 @@ async function fetchAvatar(username) {
 
 async function main() {
   const username     = PR_AUTHOR.toLowerCase();
-  const newQuestions = countNewQuestions(CHANGED_FILES_RAW);
-
+  const { totalQuestions: newQuestions, totalPoints: newPoints } = calculatePoints(CHANGED_FILES_RAW);
   if (newQuestions === 0) {
-    console.log("ℹ️   No question files detected under Members/. Nothing to update.");
+    console.log("ℹ️ No question files detected under Members/. Nothing to update.");
     process.exit(0);
   }
-
-  const newPoints = newQuestions * POINTS_PER_QUESTION;
   console.log(
     `\n👤  User        : ${username}` +
     `\n📅  Date branch : ${DATE_BRANCH}` +
