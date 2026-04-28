@@ -38,10 +38,10 @@ if (missing.length) {
   process.exit(1);
 }
 
-if (!/^\d{4}-\d{2}-\d{2}$/.test(DATE_BRANCH)) {
-  console.error(`❌  DATE_BRANCH "${DATE_BRANCH}" is not a valid YYYY-MM-DD date.`);
-  process.exit(1);
-}
+//if (!/^\d{4}-\d{2}-\d{2}$/.test(DATE_BRANCH)) {
+//  console.error(`❌  DATE_BRANCH "${DATE_BRANCH}" is not a valid YYYY-MM-DD date.`);
+//  process.exit(1);
+//}
 
 
   function calculatePoints(changedFiles) {
