@@ -1,21 +1,19 @@
 # 📌 Todays CP
-Easy
 
-1. 
+Easy
+1. https://leetcode.com/problems/plus-one/
+2. https://leetcode.com/problems/add-binary
+3. https://leetcode.com/problems/sqrtx
 
 Medium
-
-1. 
-
-Hard
-
-1. 
+1. https://leetcode.com/problems/reverse-integer
+2. https://leetcode.com/problems/integer-to-roman
 
 
 # 📚 Resources
 
 ### Topics Covered:
 
-- Try to mention the topics are covered by your problem set and any resources that you found useful for solving them.
+This week is mostly based on **math** problems becuase I find math not only interesting but an incredibly beautiful subject as well :)
 
 ### All the Best!
